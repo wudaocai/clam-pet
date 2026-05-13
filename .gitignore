@@ -1,0 +1,8 @@
+node_modules/
+dist/
+archive/
+docs/
+android/
+vite.out.log
+vite.err.log
+*.tsbuildinfo
