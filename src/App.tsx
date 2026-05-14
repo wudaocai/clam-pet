@@ -801,6 +801,8 @@ export default function App() {
   const energyChipRef = useRef<HTMLDivElement | null>(null);
   const nextEnergyParticleIdRef = useRef(1);
   const soundElementsRef = useRef<Record<string, HTMLAudioElement>>({});
+  const soundFadeFrameRef = useRef<Record<string, number>>({});
+  const fadingSoundTrackIdsRef = useRef<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioTrackRef = useRef<{ source: AudioBufferSourceNode; gain: GainNode } | null>(null);
   const moodDragStartXRef = useRef(0);
@@ -847,7 +849,20 @@ export default function App() {
     () => breathMode.phases.reduce((sum, phase) => sum + phase.seconds, 0),
     [breathMode],
   );
-  const groupedSoundTracks = useMemo(() => groupSoundTracks(allSoundTracks), []);
+  const groupedSoundTracks = useMemo(() => {
+    const activeOrder = new Map(activeSoundTrackIds.map((id, index) => [id, index]));
+
+    return groupSoundTracks(allSoundTracks).map((group) => ({
+      ...group,
+      tracks: [...group.tracks].sort((left, right) => {
+        const leftOrder = activeOrder.has(left.id) ? activeOrder.get(left.id)! : Number.POSITIVE_INFINITY;
+        const rightOrder = activeOrder.has(right.id) ? activeOrder.get(right.id)! : Number.POSITIVE_INFINITY;
+
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return 0;
+      }),
+    }));
+  }, [activeSoundTrackIds]);
 
   useEffect(() => localStorage.setItem("calmpet.tasks", JSON.stringify(tasks)), [tasks]);
   useEffect(() => localStorage.setItem("calmpet.mood", JSON.stringify(mood)), [mood]);
@@ -884,7 +899,8 @@ export default function App() {
 
   useEffect(() => {
     const volume = soundMasterVolume / 100;
-    Object.values(soundElementsRef.current).forEach((audio) => {
+    Object.entries(soundElementsRef.current).forEach(([trackId, audio]) => {
+      if (fadingSoundTrackIdsRef.current.has(trackId)) return;
       audio.volume = volume;
     });
   }, [soundMasterVolume]);
@@ -930,6 +946,7 @@ export default function App() {
 
   useEffect(() => {
     return () => {
+      Object.values(soundFadeFrameRef.current).forEach((frameId) => window.cancelAnimationFrame(frameId));
       Object.values(soundElementsRef.current).forEach((audio) => {
         audio.pause();
         audio.currentTime = 0;
@@ -1278,13 +1295,51 @@ export default function App() {
     return soundElementsRef.current[track.id];
   }
 
+  function cancelSoundFade(trackId: string) {
+    const frameId = soundFadeFrameRef.current[trackId];
+    if (frameId) {
+      window.cancelAnimationFrame(frameId);
+      delete soundFadeFrameRef.current[trackId];
+    }
+    fadingSoundTrackIdsRef.current.delete(trackId);
+  }
+
+  function fadeOutSoundTrack(track: SoundTrack, audio: HTMLAudioElement) {
+    cancelSoundFade(track.id);
+    fadingSoundTrackIdsRef.current.add(track.id);
+
+    const startVolume = audio.volume;
+    const fadeDuration = 200;
+    const fadeStart = performance.now();
+
+    return new Promise<void>((resolve) => {
+      const tick = (now: number) => {
+        const progress = Math.min((now - fadeStart) / fadeDuration, 1);
+        audio.volume = Math.max(0, startVolume * (1 - progress));
+
+        if (progress < 1) {
+          soundFadeFrameRef.current[track.id] = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = soundMasterVolume / 100;
+        cancelSoundFade(track.id);
+        resolve();
+      };
+
+      soundFadeFrameRef.current[track.id] = window.requestAnimationFrame(tick);
+    });
+  }
+
   async function toggleSoundTrack(track: SoundTrack) {
+    return handleSoundTrackToggle(track);
     const isActive = activeSoundTrackIds.includes(track.id);
     const audio = getSoundElement(track);
 
     if (isActive) {
-      audio.pause();
-      audio.currentTime = 0;
+      await fadeOutSoundTrack(track, audio);
       setActiveSoundTrackIds((current) => current.filter((id) => id !== track.id));
       setFeedback(`${track.name} 已轻轻停下`);
       return;
@@ -1294,6 +1349,28 @@ export default function App() {
       audio.volume = soundMasterVolume / 100;
       await audio.play();
       setActiveSoundTrackIds((current) => [...current, track.id]);
+      setFeedback(`${track.name} 已加入你的声音组合`);
+    } catch {
+      setFeedback("这个声音还没准备好播放，再点一次试试");
+    }
+  }
+
+  async function handleSoundTrackToggle(track: SoundTrack) {
+    const isActive = activeSoundTrackIds.includes(track.id);
+    const audio = getSoundElement(track);
+
+    if (isActive) {
+      await fadeOutSoundTrack(track, audio);
+      setActiveSoundTrackIds((current) => current.filter((id) => id !== track.id));
+      setFeedback(`${track.name} 已经轻轻淡出了`);
+      return;
+    }
+
+    try {
+      cancelSoundFade(track.id);
+      audio.volume = soundMasterVolume / 100;
+      await audio.play();
+      setActiveSoundTrackIds((current) => [track.id, ...current.filter((id) => id !== track.id)]);
       setFeedback(`${track.name} 已加入你的声音组合`);
     } catch {
       setFeedback("这个声音还没准备好播放，再点一次试试");
