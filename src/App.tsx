@@ -1,5 +1,9 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import onboardingGuideImage from "./assets/onboarding-guide.png";
+import { CustomTaskCard } from "./components/tasks/CustomTaskCard";
+import { TaskDetailCard } from "./components/tasks/TaskDetailCard";
+import { TaskGroup } from "./components/tasks/TaskGroup";
+import { pickActiveTask, splitTasks } from "./task-utils";
 
 type View = "home" | "tasks" | "mood" | "toolkit" | "wardrobe";
 type PetMood = "calm" | "lazy" | "happy";
@@ -84,6 +88,17 @@ type SoundTrack = {
   name: string;
   src: string;
   icon: string;
+};
+
+type EnergyParticle = {
+  id: number;
+  x: number;
+  y: number;
+  ex: number;
+  ey: number;
+  dx: number;
+  dy: number;
+  delay: number;
 };
 
 const initialTasks: Task[] = [
@@ -767,6 +782,12 @@ export default function App() {
   const [showEmergencyHelp, setShowEmergencyHelp] = useState(false);
   const [customTaskTitle, setCustomTaskTitle] = useState("");
   const [customTaskSteps, setCustomTaskSteps] = useState(["", "", ""]);
+  const [taskSectionsOpen, setTaskSectionsOpen] = useState({
+    pending: true,
+    completed: false,
+    custom: true,
+  });
+  const [energyParticles, setEnergyParticles] = useState<EnergyParticle[]>([]);
   const [activePrompt, setActivePrompt] = useState(soothePrompts[0]);
   const [activeQuote, setActiveQuote] = useState(gentleQuotes[0]);
   const [promptSwapTick, setPromptSwapTick] = useState(0);
@@ -776,6 +797,9 @@ export default function App() {
   );
   const [savingNote, setSavingNote] = useState(false);
   const appRef = useRef<HTMLElement | null>(null);
+  const phoneRef = useRef<HTMLElement | null>(null);
+  const energyChipRef = useRef<HTMLDivElement | null>(null);
+  const nextEnergyParticleIdRef = useRef(1);
   const soundElementsRef = useRef<Record<string, HTMLAudioElement>>({});
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioTrackRef = useRef<{ source: AudioBufferSourceNode; gain: GainNode } | null>(null);
@@ -803,7 +827,12 @@ export default function App() {
   const currentPetMood = resolvePetMood(mood);
 
   const energy = tasks.filter((task) => task.done).reduce((sum, task) => sum + task.energy, 36);
-  const activeTask = tasks.find((task) => task.id === activeTaskId) ?? tasks[0];
+  const { pendingTasks, completedTasks, customTasks } = useMemo(() => splitTasks(tasks), [tasks]);
+  const orderedTasks = useMemo(
+    () => [...pendingTasks, ...completedTasks, ...customTasks],
+    [pendingTasks, completedTasks, customTasks],
+  );
+  const activeTask = pickActiveTask(orderedTasks, activeTaskId);
   const visibleHomeTasks = tasks.filter((task) => !task.done).slice(0, 2);
   const selectedDate = useMemo(() => {
     const [year, month, day] = selectedDateKey.split("-").map(Number);
@@ -832,6 +861,12 @@ export default function App() {
   useEffect(() => {
     setHeaderMessage((current) => pickRandomHeaderMessage(current));
   }, [view]);
+
+  useEffect(() => {
+    if (!orderedTasks.some((task) => task.id === activeTaskId)) {
+      setActiveTaskId(orderedTasks[0]?.id ?? 1);
+    }
+  }, [activeTaskId, orderedTasks]);
 
   useEffect(() => {
     if (!feedback) return;
@@ -913,7 +948,48 @@ export default function App() {
     setView("tasks");
   }
 
-  function completeTask(id: number) {
+  function toggleTaskSection(section: "pending" | "completed" | "custom") {
+    setTaskSectionsOpen((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
+  }
+
+  function launchEnergyParticles(sourceRect?: DOMRect) {
+    const phoneRect = phoneRef.current?.getBoundingClientRect();
+    const chipRect = energyChipRef.current?.getBoundingClientRect();
+    if (!phoneRect || !chipRect) return;
+
+    const originX = sourceRect ? sourceRect.left + sourceRect.width / 2 - phoneRect.left : phoneRect.width * 0.5;
+    const originY = sourceRect ? sourceRect.top + sourceRect.height / 2 - phoneRect.top : phoneRect.height * 0.58;
+    const targetX = chipRect.left + chipRect.width / 2 - phoneRect.left;
+    const targetY = chipRect.top + chipRect.height / 2 - phoneRect.top;
+    const particleIds: number[] = [];
+
+    const particles = Array.from({ length: 8 }, (_, index) => {
+      const id = nextEnergyParticleIdRef.current++;
+      particleIds.push(id);
+      const angle = (-100 + index * 20) * (Math.PI / 180);
+      const burstDistance = 28 + (index % 3) * 10;
+      return {
+        id,
+        x: originX + (index % 2 === 0 ? -8 : 8),
+        y: originY + (index - 3) * 3,
+        ex: Math.cos(angle) * burstDistance,
+        ey: Math.sin(angle) * burstDistance - 8,
+        dx: targetX - originX + (index - 3.5) * 6,
+        dy: targetY - originY - 16 - index * 4,
+        delay: index * 24,
+      };
+    });
+
+    setEnergyParticles((current) => [...current, ...particles]);
+    window.setTimeout(() => {
+      setEnergyParticles((current) => current.filter((item) => !particleIds.includes(item.id)));
+    }, 980);
+  }
+
+  function completeTask(id: number, sourceRect?: DOMRect) {
     const task = tasks.find((item) => item.id === id);
     if (!task) return;
 
@@ -936,10 +1012,11 @@ export default function App() {
     );
     setMood("happy");
     setActiveTaskId(id);
+    launchEnergyParticles(sourceRect);
     playPetAction("celebrate", `Momo 开心地蹦了一下，能量 +${task.energy}`, 1300);
   }
 
-  function toggleStep(taskId: number, stepId: number) {
+  function toggleStep(taskId: number, stepId: number, sourceRect?: DOMRect) {
     let completedAll = false;
 
     setTasks((current) =>
@@ -960,6 +1037,9 @@ export default function App() {
     );
 
     setMood(completedAll ? "happy" : "calm");
+    if (completedAll) {
+      launchEnergyParticles(sourceRect);
+    }
     playPetAction(completedAll ? "celebrate" : "pat", completedAll ? "这件小事完整完成了" : "很好，完成了其中一小步");
   }
 
@@ -1109,6 +1189,7 @@ export default function App() {
     setActiveTaskId(nextTask.id);
     setCustomTaskTitle("");
     setCustomTaskSteps(["", "", ""]);
+    setTaskSectionsOpen((current) => ({ ...current, custom: true }));
     playPetAction("nuzzle", "Momo 帮你把这件小事放进今日照顾里");
   }
 
@@ -1298,8 +1379,29 @@ export default function App() {
   return (
     <main className={`app theme-${theme}`} ref={appRef}>
       <div className="cursor-orb" aria-hidden="true" />
-      <section className="phone">
+      <section className="phone" ref={phoneRef}>
         {feedback && <div className="toast">{feedback}</div>}
+        {!!energyParticles.length && (
+          <div className="task-energy-layer" aria-hidden="true">
+            {energyParticles.map((particle) => (
+              <span
+                className="task-energy-particle"
+                key={particle.id}
+                style={
+                  {
+                    "--particle-x": `${particle.x}px`,
+                    "--particle-y": `${particle.y}px`,
+                    "--particle-ex": `${particle.ex}px`,
+                    "--particle-ey": `${particle.ey}px`,
+                    "--particle-dx": `${particle.dx}px`,
+                    "--particle-dy": `${particle.dy}px`,
+                    "--particle-delay": `${particle.delay}ms`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </div>
+        )}
         {showEmergencyHelp && (
           <div
             className="emergency-overlay"
@@ -1358,7 +1460,9 @@ export default function App() {
               {headerMessage}
             </h1>
           </div>
-          <div className={feedback ? "energy-chip bump" : "energy-chip"}>{energy} 能量</div>
+          <div className={feedback ? "energy-chip bump" : "energy-chip"} ref={energyChipRef}>
+            {energy} 能量
+          </div>
         </header>
 
         {view === "home" && (
@@ -1533,6 +1637,48 @@ export default function App() {
               </div>
             </div>
 
+            <div className="task-stack">
+              <TaskGroup
+                title="未完成任务"
+                emptyText="今天需要照顾的小事已经做完了。"
+                tasks={pendingTasks}
+                activeTaskId={activeTaskId}
+                open={taskSectionsOpen.pending}
+                onToggleOpen={() => toggleTaskSection("pending")}
+                onSelectTask={setActiveTaskId}
+                onCompleteTask={completeTask}
+              />
+
+              <TaskDetailCard task={activeTask} onToggleStep={toggleStep} onCompleteTask={completeTask} />
+
+              <TaskGroup
+                title="已完成任务"
+                emptyText="完成后的任务会安静地留在这里。"
+                tasks={completedTasks}
+                activeTaskId={activeTaskId}
+                open={taskSectionsOpen.completed}
+                onToggleOpen={() => toggleTaskSection("completed")}
+                onSelectTask={setActiveTaskId}
+                onCompleteTask={completeTask}
+              />
+
+              <CustomTaskCard
+                open={taskSectionsOpen.custom}
+                tasks={customTasks}
+                activeTaskId={activeTaskId}
+                title={customTaskTitle}
+                steps={customTaskSteps}
+                onToggleOpen={() => toggleTaskSection("custom")}
+                onSelectTask={setActiveTaskId}
+                onCompleteTask={completeTask}
+                onTitleChange={setCustomTaskTitle}
+                onStepChange={updateCustomTaskStep}
+                onAddTask={addCustomTask}
+              />
+            </div>
+
+            {false && (
+            <>
             <div className="task-list">
               {tasks.map((task) => (
                 <article
@@ -1605,6 +1751,8 @@ export default function App() {
                 加入今日照顾
               </button>
             </section>
+            </>
+            )}
           </section>
         )}
 

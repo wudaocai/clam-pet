@@ -33,6 +33,10 @@
   --pet-sky: oklch(0.91 0.028 210);
   --pet-ground: oklch(0.97 0.012 95);
   --warm-spark: oklch(0.88 0.06 55 / 0.88);
+  --energy-particle-top: oklch(0.98 0.018 95 / 0.96);
+  --energy-particle-bottom: oklch(0.88 0.06 55);
+  --energy-particle-ring: oklch(0.95 0.07 72 / 0.14);
+  --energy-particle-shadow: oklch(0.88 0.08 68 / 0.3);
   --leaf-top: oklch(0.96 0.018 95);
   --leaf-bottom: oklch(0.72 0.066 150);
   --breath-card-glow: oklch(0.86 0.05 180 / 0.35);
@@ -330,6 +334,10 @@ input:focus-visible {
   --pet-sky: oklch(0.89 0.03 230);
   --pet-ground: oklch(0.97 0.01 205);
   --warm-spark: oklch(0.86 0.03 220 / 0.88);
+  --energy-particle-top: oklch(0.98 0.012 235 / 0.96);
+  --energy-particle-bottom: oklch(0.79 0.052 228);
+  --energy-particle-ring: oklch(0.88 0.04 228 / 0.16);
+  --energy-particle-shadow: oklch(0.7 0.05 228 / 0.28);
   --leaf-top: oklch(0.95 0.014 225);
   --leaf-bottom: oklch(0.66 0.05 230);
   --breath-card-glow: oklch(0.82 0.05 228 / 0.34);
@@ -362,6 +370,10 @@ input:focus-visible {
   --pet-sky: oklch(0.88 0.026 168);
   --pet-ground: oklch(0.96 0.014 104);
   --warm-spark: oklch(0.84 0.05 108 / 0.88);
+  --energy-particle-top: oklch(0.98 0.012 140 / 0.96);
+  --energy-particle-bottom: oklch(0.78 0.058 145);
+  --energy-particle-ring: oklch(0.88 0.04 142 / 0.16);
+  --energy-particle-shadow: oklch(0.68 0.05 145 / 0.28);
   --leaf-top: oklch(0.92 0.018 120);
   --leaf-bottom: oklch(0.62 0.07 145);
   --breath-card-glow: oklch(0.82 0.05 145 / 0.34);
@@ -394,6 +406,10 @@ input:focus-visible {
   --pet-sky: oklch(0.92 0.03 44);
   --pet-ground: oklch(0.98 0.012 82);
   --warm-spark: oklch(0.92 0.082 72 / 0.92);
+  --energy-particle-top: oklch(0.99 0.014 85 / 0.96);
+  --energy-particle-bottom: oklch(0.9 0.082 68);
+  --energy-particle-ring: oklch(0.95 0.07 72 / 0.16);
+  --energy-particle-shadow: oklch(0.88 0.08 68 / 0.3);
   --leaf-top: oklch(0.98 0.014 82);
   --leaf-bottom: oklch(0.76 0.068 48);
   --breath-card-glow: oklch(0.9 0.06 62 / 0.34);
@@ -511,6 +527,33 @@ input:focus-visible {
 
 .energy-chip.bump {
   animation: soft-bump 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.task-energy-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 9;
+}
+
+.task-energy-particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 30%, oklch(1 0.004 95 / 0.95), transparent 34%),
+    linear-gradient(180deg, var(--energy-particle-top), var(--energy-particle-bottom));
+  box-shadow:
+    0 0 0 5px var(--energy-particle-ring),
+    0 10px 22px var(--energy-particle-shadow);
+  transform: translate(var(--particle-x), var(--particle-y));
+  animation: task-energy-fly 1120ms linear forwards;
+  animation-delay: var(--particle-delay);
+  will-change: transform, opacity;
 }
 
 .screen {
@@ -1575,27 +1618,101 @@ input:focus-visible {
   line-height: 1.14;
 }
 
-.task-list {
+.task-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.task-list,
+.custom-task-list {
   display: grid;
   gap: 10px;
 }
 
+.task-section,
 .custom-task-card {
   display: grid;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
   border: 1px solid color-mix(in oklab, var(--line) 92%, white);
-  border-radius: 20px;
+  border-radius: 22px;
   background:
     radial-gradient(circle at top right, color-mix(in oklab, var(--accent-surface) 56%, white), transparent 36%),
     linear-gradient(180deg, color-mix(in oklab, var(--surface-strong) 95%, white), color-mix(in oklab, var(--surface-muted) 88%, white));
   box-shadow: 0 18px 34px oklch(0.42 0.028 205 / 0.08);
 }
 
+.task-section-toggle {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in oklab, var(--line) 88%, white);
+  border-radius: 18px;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top right, color-mix(in oklab, var(--accent-soft) 44%, white), transparent 42%),
+    color-mix(in oklab, var(--surface-strong) 94%, white);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.task-section-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px oklch(0.42 0.028 205 / 0.08);
+}
+
+.task-section-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: color-mix(in oklab, var(--sage-deep) 82%, var(--muted));
+}
+
+.task-section-meta strong {
+  min-width: 1.4em;
+  text-align: right;
+}
+
+.task-chevron {
+  display: inline-block;
+  font-size: 15px;
+  line-height: 1;
+  transform: rotate(180deg);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.task-chevron.open {
+  transform: rotate(0deg);
+}
+
+.task-section-body {
+  display: grid;
+  gap: 12px;
+  animation: detail-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.task-empty {
+  padding: 12px 14px;
+  border: 1px dashed color-mix(in oklab, var(--line) 76%, white);
+  border-radius: 16px;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--surface-strong) 92%, white);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.custom-task-intro,
 .custom-task-card p,
 .custom-task-card h3 {
   margin: 0;
+}
+
+.custom-task-intro {
+  display: grid;
+  gap: 4px;
 }
 
 .custom-task-card p {
@@ -1605,17 +1722,21 @@ input:focus-visible {
 }
 
 .custom-task-card h3 {
-  margin-top: 3px;
   color: var(--ink);
-  font-size: 18px;
+  font-size: 17px;
+}
+
+.custom-task-form {
+  display: grid;
+  gap: 10px;
 }
 
 .custom-task-card input {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   border: 1px solid oklch(0.86 0.024 150);
-  border-radius: 12px;
-  padding: 0 12px;
+  border-radius: 14px;
+  padding: 0 14px;
   color: var(--ink);
   background: oklch(1 0.004 95 / 0.74);
 }
@@ -1625,13 +1746,18 @@ input:focus-visible {
   gap: 8px;
 }
 
-.custom-task-card button {
-  min-height: 44px;
+.custom-task-form > button {
+  min-height: 46px;
   border: 0;
-  border-radius: 13px;
+  border-radius: 16px;
   color: var(--sage-deep);
-  background: var(--accent-surface);
+  background:
+    radial-gradient(circle at top, oklch(1 0.004 95 / 0.48), transparent 54%),
+    linear-gradient(180deg, color-mix(in oklab, var(--accent-surface) 92%, white), color-mix(in oklab, var(--accent-soft) 88%, white));
   font-weight: 900;
+  box-shadow:
+    inset 0 1px 0 oklch(1 0.004 95 / 0.76),
+    0 10px 18px oklch(0.42 0.028 205 / 0.08);
 }
 
 .home-task-queue {
@@ -1964,7 +2090,6 @@ input:focus-visible {
 }
 
 .task-detail {
-  margin-top: 14px;
   padding: 16px;
   border: 1px solid color-mix(in oklab, var(--line) 92%, white);
   border-radius: 20px;
@@ -1973,6 +2098,24 @@ input:focus-visible {
     linear-gradient(180deg, color-mix(in oklab, var(--surface-strong) 95%, white), color-mix(in oklab, var(--surface-muted) 87%, white));
   animation: detail-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
   box-shadow: 0 18px 34px oklch(0.42 0.028 205 / 0.08);
+}
+
+.task-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-detail-tag {
+  padding: 8px 12px;
+  border: 1px solid color-mix(in oklab, var(--line) 84%, white);
+  border-radius: 999px;
+  color: var(--sage-deep);
+  background: color-mix(in oklab, var(--surface-strong) 90%, white);
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .task-detail p,
@@ -4025,6 +4168,51 @@ input:focus-visible {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes task-energy-fly {
+  0% {
+    opacity: 0;
+    transform: translate(var(--particle-x), var(--particle-y)) scale(0.52);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translate(var(--particle-x), var(--particle-y)) scale(1.08);
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  34% {
+    opacity: 1;
+    transform:
+      translate(
+        calc(var(--particle-x) + var(--particle-ex)),
+        calc(var(--particle-y) + var(--particle-ey))
+      )
+      scale(1);
+    animation-timing-function: cubic-bezier(0.62, 0.02, 0.9, 0.32);
+  }
+
+  56% {
+    opacity: 0.96;
+    transform:
+      translate(
+        calc(var(--particle-x) + var(--particle-ex) + (var(--particle-dx) * 0.14)),
+        calc(var(--particle-y) + var(--particle-ey) + (var(--particle-dy) * 0.14))
+      )
+      scale(0.96);
+    animation-timing-function: cubic-bezier(0.12, 0.72, 0.18, 1);
+  }
+
+  100% {
+    opacity: 0;
+    transform:
+      translate(
+        calc(var(--particle-x) + var(--particle-ex) + var(--particle-dx)),
+        calc(var(--particle-y) + var(--particle-ey) + var(--particle-dy))
+      )
+      scale(0.26);
   }
 }
 
