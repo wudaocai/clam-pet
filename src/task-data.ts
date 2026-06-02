@@ -165,3 +165,25 @@ export function normalizeTasks(tasks: Task[]): Task[] {
   const customTasks = tasks.filter((task) => task.custom || task.id >= 1000);
   return [...builtinTasks, ...customTasks];
 }
+
+function resetBuiltinTasks(tasks: Task[]): Task[] {
+  const customTasks = tasks.filter((task) => task.custom || task.id >= 1000);
+  const refreshedBuiltinTasks = initialTasks.map((task) => ({
+    ...task,
+    done: false,
+    steps: task.steps.map((step) => ({ ...step, done: false })),
+  }));
+
+  return [...refreshedBuiltinTasks, ...customTasks];
+}
+
+// Built-in daily tasks refresh once per calendar day, while custom tasks stay untouched.
+export function hydrateTasksForDate(tasks: Task[], lastResetDate: string, todayKey: string): Task[] {
+  const normalizedTasks = normalizeTasks(tasks);
+
+  if (lastResetDate === todayKey) {
+    return normalizedTasks;
+  }
+
+  return resetBuiltinTasks(normalizedTasks);
+}
