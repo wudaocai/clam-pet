@@ -438,6 +438,60 @@ input:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.boot-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 18%, oklch(1 0.004 95 / 0.44), transparent 28%),
+    oklch(0.98 0.01 95 / 0.82);
+  backdrop-filter: blur(12px) saturate(1.04);
+}
+
+.boot-card {
+  width: min(100%, 290px);
+  display: grid;
+  gap: 8px;
+  padding: 24px 22px;
+  border: 1px solid color-mix(in oklab, var(--line) 84%, white);
+  border-radius: 26px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, oklch(1 0.004 95 / 0.5), transparent 52%),
+    linear-gradient(180deg, oklch(1 0.004 95 / 0.92), color-mix(in oklab, var(--surface-muted, oklch(0.97 0.01 95)) 90%, white));
+  box-shadow:
+    0 24px 42px oklch(0.42 0.028 205 / 0.12),
+    inset 0 1px 0 oklch(1 0 0 / 0.56);
+}
+
+.boot-card p,
+.boot-card strong,
+.boot-card span {
+  margin: 0;
+}
+
+.boot-card p {
+  color: var(--sage-deep);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.boot-card strong {
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.boot-card span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .toast {
   position: absolute;
   left: 22px;

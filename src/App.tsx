@@ -1,5 +1,12 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import onboardingGuideImage from "./assets/onboarding-guide.png";
+import momoCuddleImage from "./assets/momo/momo-cuddle.png";
+import momoIdleBlinkImage from "./assets/momo/momo-idle-blink.png";
+import momoIdleImage from "./assets/momo/momo-idle.png";
+import momoNuzzleImage from "./assets/momo/momo-nuzzle.png";
+import momoPatBlinkImage from "./assets/momo/momo-pat-blink.png";
+import momoPatImage from "./assets/momo/momo-pat.png";
+import momoWaveImage from "./assets/momo/momo-wave.png";
 import {
   allSoundTracks,
   breathModes,
@@ -53,8 +60,35 @@ import { hydrateTasksForDate, initialTasks } from "./task-data";
 import type { Task } from "./task-types";
 import { pickActiveTask, splitTasks } from "./task-utils";
 
+const bootImageSources = [
+  onboardingGuideImage,
+  momoIdleImage,
+  momoIdleBlinkImage,
+  momoPatBlinkImage,
+  momoPatImage,
+  momoNuzzleImage,
+  momoCuddleImage,
+  momoWaveImage,
+];
+
+function preloadImage(src: string) {
+  return new Promise<void>((resolve) => {
+    const image = new Image();
+    const finish = () => resolve();
+
+    image.onload = finish;
+    image.onerror = finish;
+    image.src = src;
+
+    if (image.complete) {
+      finish();
+    }
+  });
+}
+
 export default function App() {
   const todayTaskKey = formatDateKey(new Date());
+  const [bootAssetsReady, setBootAssetsReady] = useState(false);
   const [view, setView] = useState<View>("home");
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [closingOnboarding, setClosingOnboarding] = useState(false);
@@ -216,6 +250,19 @@ export default function App() {
   useEffect(() => {
     setHeaderMessage((current) => pickRandomHeaderMessage(headerEncouragements, current));
   }, [view]);
+
+  useEffect(() => {
+    let active = true;
+
+    Promise.allSettled(bootImageSources.map((src) => preloadImage(src))).then(() => {
+      if (!active) return;
+      setBootAssetsReady(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!orderedTasks.some((task) => task.id === activeTaskId)) {
@@ -876,6 +923,16 @@ export default function App() {
     <main className={`app theme-${theme}`} ref={appRef}>
       <div className="cursor-orb" aria-hidden="true" />
       <section className="phone" ref={phoneRef}>
+        {!bootAssetsReady && (
+          <div className="boot-overlay" role="status" aria-live="polite" aria-label="正在准备 CalmPet">
+            <div className="boot-card">
+              <p>CalmPet</p>
+              <strong>正在准备 Momo 和首页素材…</strong>
+              <span>等图片加载好后再进入，首屏会更完整一点。</span>
+            </div>
+          </div>
+        )}
+
         {feedback && <div className="toast">{feedback}</div>}
         {!!energyParticles.length && (
           <div className="task-energy-layer" aria-hidden="true">
