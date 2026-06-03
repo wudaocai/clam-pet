@@ -2,7 +2,7 @@ export type View = "home" | "tasks" | "mood" | "toolkit" | "wardrobe";
 
 export type PetMood = "calm" | "lazy" | "happy";
 export type MoodId = string;
-export type PetAction = "idle" | "pat" | "nuzzle" | "celebrate";
+export type PetAction = "idle" | "pat" | "nuzzle" | "celebrate" | "cuddle" | "wave";
 export type SoundMode = "rain" | "forest" | "night";
 export type BreathModeId = "soft" | "box" | "release" | "sleep";
 export type ToolkitPanel = "sound" | "breath" | "soothe";

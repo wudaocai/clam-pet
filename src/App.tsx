@@ -44,6 +44,7 @@ import type {
   View,
   PetAction,
 } from "./app/types";
+import { HomeScreen } from "./components/home/HomeScreen";
 import { Pet } from "./components/pet/Pet";
 import { CustomTaskCard } from "./components/tasks/CustomTaskCard";
 import { TaskDetailCard } from "./components/tasks/TaskDetailCard";
@@ -81,6 +82,7 @@ export default function App() {
   const [activeTaskId, setActiveTaskId] = useState(1);
   const [feedback, setFeedback] = useState("");
   const [petAction, setPetAction] = useState<PetAction>("idle");
+  const [petActionTick, setPetActionTick] = useState(0);
   const [breathing, setBreathing] = useState(false);
   const [activeBreathMode, setActiveBreathMode] = useState<BreathModeId>("soft");
   const [breathPhase, setBreathPhase] = useState(0);
@@ -130,6 +132,7 @@ export default function App() {
   const fadingSoundTrackIdsRef = useRef<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioTrackRef = useRef<{ source: AudioBufferSourceNode; gain: GainNode } | null>(null);
+  const petActionTimerRef = useRef<number | null>(null);
   const moodDragStartXRef = useRef(0);
   const moodDragStartYRef = useRef(0);
   const moodDragStartScrollRef = useRef(0);
@@ -161,6 +164,17 @@ export default function App() {
   );
   const activeTask = pickActiveTask(orderedTasks, activeTaskId);
   const visibleHomeTasks = tasks.filter((task) => !task.done).slice(0, 2);
+  const featuredSoundTrack = useMemo(
+    () => allSoundTracks.find((track) => track.id === activeSoundTrackIds[0]) ?? null,
+    [activeSoundTrackIds],
+  );
+  const homeGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+
+    if (hour < 11) return "今天也要温柔地照顾自己哦";
+    if (hour < 18) return "我们先从一件小事开始";
+    return "辛苦了，先让自己缓一缓";
+  }, []);
   const selectedDate = useMemo(() => {
     const [year, month, day] = selectedDateKey.split("-").map(Number);
     return new Date(year, month - 1, day);
@@ -292,6 +306,9 @@ export default function App() {
 
   useEffect(() => {
     return () => {
+      if (petActionTimerRef.current) {
+        window.clearTimeout(petActionTimerRef.current);
+      }
       Object.values(soundFadeFrameRef.current).forEach((frameId) => window.cancelAnimationFrame(frameId));
       Object.values(soundElementsRef.current).forEach((audio) => {
         audio.pause();
@@ -300,10 +317,40 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (view !== "home" && view !== "wardrobe") return;
+
+    const motions: Array<{ action: PetAction; duration: number }> = [
+      { action: "wave", duration: 820 },
+      { action: "nuzzle", duration: 980 },
+      { action: "pat", duration: 860 },
+    ];
+
+    const timer = window.setInterval(() => {
+      if (petAction !== "idle") return;
+      const next = motions[Math.floor(Math.random() * motions.length)];
+      animatePetAction(next.action, next.duration);
+    }, 12000);
+
+    return () => window.clearInterval(timer);
+  }, [petAction, view]);
+
+  function animatePetAction(action: PetAction, duration = 1000) {
+    if (petActionTimerRef.current) {
+      window.clearTimeout(petActionTimerRef.current);
+    }
+
+    setPetActionTick((current) => current + 1);
+    setPetAction(action);
+    petActionTimerRef.current = window.setTimeout(() => {
+      setPetAction("idle");
+      petActionTimerRef.current = null;
+    }, duration);
+  }
+
   function playPetAction(action: PetAction, message: string, duration = 1000) {
     setFeedback(message);
-    setPetAction(action);
-    window.setTimeout(() => setPetAction("idle"), duration);
+    animatePetAction(action, duration);
   }
 
   function openTask(id: number) {
@@ -414,6 +461,30 @@ export default function App() {
   function nuzzlePet() {
     setMood("happy");
     playPetAction("nuzzle", "Momo 轻轻蹭了蹭你");
+  }
+
+  function cuddlePet() {
+    setMood("calm");
+    playPetAction("cuddle", "Momo 被你揉得软乎乎的，安心地靠过来了", 1350);
+  }
+
+  function wavePet() {
+    setMood("happy");
+    playPetAction("wave", "Momo 抬起小爪，像是在和你打招呼", 900);
+  }
+
+  function openBreathShortcut() {
+    setToolkitPanel("breath");
+    setView("toolkit");
+    setBreathing(true);
+    setBreathPhase(0);
+    setFeedback("先陪你缓 30 秒");
+  }
+
+  function openSoundShortcut() {
+    setToolkitPanel("sound");
+    setView("toolkit");
+    setFeedback(featuredSoundTrack ? `继续播放 ${featuredSoundTrack.name}` : "去挑一个喜欢的背景声吧");
   }
 
   function selectMoodForDate(nextMood: MoodId) {
@@ -542,6 +613,8 @@ export default function App() {
       id: Date.now(),
       title,
       type: "我的每日任务",
+      summary: taskSteps[0]?.text ?? "给今天留下一件想温柔完成的小事",
+      icon: "☘",
       energy: 3,
       done: false,
       custom: true,
@@ -876,7 +949,7 @@ export default function App() {
           </div>
         )}
 
-        <header className="app-header">
+        <header className={view === "home" ? "app-header home-shell-header" : "app-header"}>
           <div>
             <p>CalmPet</p>
             <h1 className={view === "home" ? "" : "app-header-title-subpage"}>
@@ -888,9 +961,18 @@ export default function App() {
           </div>
         </header>
 
-        {view === "home" && (
+        {false && view === "home" && (
           <section className="screen home-screen">
-            <Pet mood={currentPetMood} action={petAction} outfit={outfit} onPat={patPet} onNuzzle={nuzzlePet} />
+            <Pet
+              mood={currentPetMood}
+              action={petAction}
+              actionTick={petActionTick}
+              outfit={outfit}
+              onPat={patPet}
+              onNuzzle={nuzzlePet}
+              onCuddle={cuddlePet}
+              onWave={wavePet}
+            />
 
             <div className="pet-card">
               <div>
@@ -952,9 +1034,41 @@ export default function App() {
           </section>
         )}
 
+        {view === "home" && (
+          <HomeScreen
+            greeting={homeGreeting}
+            moodLabel={currentMoodLabel}
+            petMood={currentPetMood}
+            petAction={petAction}
+            petActionTick={petActionTick}
+            outfit={outfit}
+            visibleTasks={visibleHomeTasks}
+            activeSoundName={featuredSoundTrack?.name ?? null}
+            onPat={patPet}
+            onNuzzle={nuzzlePet}
+            onCuddle={cuddlePet}
+            onWave={wavePet}
+            onOpenSettings={() => setView("wardrobe")}
+            onOpenTask={openTask}
+            onCompleteTask={completeTask}
+            onOpenTasks={() => setView("tasks")}
+            onOpenBreathShortcut={openBreathShortcut}
+            onOpenSoundShortcut={openSoundShortcut}
+          />
+        )}
+
         {view === "wardrobe" && (
           <section className="screen">
-            <Pet mood={currentPetMood} action={petAction} outfit={outfit} onPat={patPet} onNuzzle={nuzzlePet} />
+            <Pet
+              mood={currentPetMood}
+              action={petAction}
+              actionTick={petActionTick}
+              outfit={outfit}
+              onPat={patPet}
+              onNuzzle={nuzzlePet}
+              onCuddle={cuddlePet}
+              onWave={wavePet}
+            />
             <div className="section-title wardrobe-title">
               <div>
                 <p>设置</p>

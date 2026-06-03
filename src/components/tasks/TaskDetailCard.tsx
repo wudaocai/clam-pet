@@ -1,3 +1,4 @@
+import { getTaskPresentation } from "../../task-presentation";
 import type { Task } from "../../task-types";
 
 type TaskDetailCardProps = {
@@ -7,12 +8,20 @@ type TaskDetailCardProps = {
 };
 
 export function TaskDetailCard({ task, onToggleStep, onCompleteTask }: TaskDetailCardProps) {
+  const presentation = getTaskPresentation(task);
+
   return (
     <section className="task-detail">
       <div className="task-detail-head">
-        <div>
-          <p>任务指导</p>
-          <h2>{task.title}</h2>
+        <div className="task-detail-copy">
+          <div className="task-detail-icon" style={presentation.style} aria-hidden="true">
+            {presentation.icon}
+          </div>
+          <div>
+            <p>任务指引</p>
+            <h2>{task.title}</h2>
+            <span className="task-detail-summary">{presentation.summary}</span>
+          </div>
         </div>
         <span className="task-detail-tag">{task.type}</span>
       </div>

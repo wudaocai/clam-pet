@@ -1,3 +1,4 @@
+import { getTaskPresentation } from "../../task-presentation";
 import type { Task } from "../../task-types";
 
 type CustomTaskCardProps = {
@@ -71,28 +72,38 @@ export function CustomTaskCard({
 
           {!!tasks.length && (
             <div className="custom-task-list">
-              {tasks.map((task) => (
-                <article
-                  className={activeTaskId === task.id ? "task-row active" : "task-row"}
-                  key={task.id}
-                  onClick={() => onSelectTask(task.id)}
-                >
-                  <button
-                    className={task.done ? "check done" : "check"}
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCompleteTask(task.id, event.currentTarget.getBoundingClientRect());
-                    }}
-                    aria-label={`完成 ${task.title}`}
-                  />
-                  <div>
-                    <span>{task.done ? "已经收好" : "正在照顾"}</span>
-                    <strong>{task.title}</strong>
-                  </div>
-                  <em>+{task.energy}</em>
-                </article>
-              ))}
+              {tasks.map((task) => {
+                const presentation = getTaskPresentation(task);
+
+                return (
+                  <article
+                    className={activeTaskId === task.id ? "task-row active" : "task-row"}
+                    key={task.id}
+                    onClick={() => onSelectTask(task.id)}
+                  >
+                    <button
+                      className={task.done ? "check done" : "check"}
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCompleteTask(task.id, event.currentTarget.getBoundingClientRect());
+                      }}
+                      aria-label={`完成 ${task.title}`}
+                    />
+                    <div className="task-row-main">
+                      <div className="task-row-icon" style={presentation.style} aria-hidden="true">
+                        {presentation.icon}
+                      </div>
+                      <div>
+                        <span>{task.done ? "已经收好" : "正在照顾"}</span>
+                        <strong>{task.title}</strong>
+                        <small>{presentation.summary}</small>
+                      </div>
+                    </div>
+                    <em>+{task.energy}</em>
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
